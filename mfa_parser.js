@@ -1,9 +1,11 @@
+// nvm install 7.3.0
 const request = require('request')
     , cheerio = require('cheerio')
     , schedule = require('node-schedule')
     , logger = require('./logger')('cheerio-MFA-parser')
     , exec = require('child_process').exec
-    , fs = require('fs');
+    , fs = require('fs')
+    , util = require('util');
 /*
 Задача:
 0) У всех MFA сайтов будет одинаковый скелет
@@ -66,19 +68,26 @@ casper.stdout.on('data', function (data) {
     console.log(data);
 });
 casper.stdout.on('close', () => {
-    let cutFrom = fromCasper.indexOf('<cut>') + 5
-        , cutTo = fromCasper.indexOf('<cut/>')
-        , urlAdressStorage = fromCasper.substring(cutFrom, cutTo).split(',');
-    logger.info('FROM CUSPER urlAdressStorage: ', urlAdressStorage);
-    if (urlAdressStorage.length) {
-        takeContentForMFA(urlAdressStorage);
+    if (-1 === fromCasper.lastIndexOf('~~Emty links aray~~')) {
+        // keyword
+        let cutWordFrom = fromCasper.indexOf('<keyword>') + 9
+            , cutWordTo = fromCasper.indexOf('<keyword/>')
+            , keyword = fromCasper.substring(cutWordFrom, cutWordTo);
+        // urls
+        let cutFrom = fromCasper.indexOf('<cut>') + 5
+            , cutTo = fromCasper.indexOf('<cut/>')
+            , urlAdressStorage = fromCasper.substring(cutFrom, cutTo).split(',');
+        logger.info('FROM CUSPER urlAdressStorage: ', { [keyword]: urlAdressStorage });
+        takeContentForMFA({ [keyword]: urlAdressStorage });
+        // urls
+    } else {
+        console.log('Casper failure.....');
+        process.exit();
     }
 });
 //
 //
 //
-
-
 function takeContentForMFA(urlAdressStorage) {
     const P_length = 16, H1_length = 6, H2_length = 12, _IMGsrc_length = 4;
     var forReturnContentObject = {};
@@ -115,7 +124,10 @@ function takeContentForMFA(urlAdressStorage) {
     }
 
     logger.info("I'm successful scrape all content :-) ", forReturnContentObject);
-
+    fs.writeFile('./content/scrappy__' + new Date() + '.js', util.inspect(forReturnContentObject, false, 4, false), (err) => {
+        if (err) throw err;
+        console.log('WoW! scraping content saved!');
+    });
     /*fs.createWriteStream(`content/${word}.js`, {
         flags: 'w',
         defaultEncoding: 'utf8',

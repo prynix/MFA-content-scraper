@@ -1,7 +1,6 @@
 /*
 casperjs casper-SEO-hunter.js
 */
-
 var casper = require('casper').create({
     waitTimeout: 15000,
     stepTimeout: 15000,
@@ -46,13 +45,36 @@ casper.start('http://google.com', function () {
 
 casper.then(function () {
     this.fill('form[action="/search"]', { q: keywords[currency] }, true);
+    this.waitForSelector('h3.r a');
 });
 
 casper.then(function () {
     links = this.evaluate(getLinks);
-    this.echo('<cut>' + links + '<cut/>');
+    if (links.length) {
+        this.echo('<keyword>' + keywords[currency] + '<keyword/>');
+        this.echo('<cut>' + links + '<cut/>');
+    } else {
+        this.echo('~~Emty links aray~~').exit();
+    }
 });
 
-//casper.exit();
 
-casper.run();
+casper.run(function () {
+    this.echo('Casper run');
+    this.exit();
+});
+
+
+/*
+var urls = _.uniq([
+  'http://google.com/',
+  'http://docs.casperjs.org/',
+  'http://google.com/'
+]);
+
+casper.start().eachThen(urls, function(response) {
+  this.thenOpen(response.data, function(response) {
+    this.echo(this.getTitle());
+  });
+});
+*/
