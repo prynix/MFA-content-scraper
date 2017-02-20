@@ -2,7 +2,6 @@
 const request = require('request')
     , cheerio = require('cheerio')
     , schedule = require('node-schedule')
-    , logger = require('./logger')('cheerio-MFA-parser')
     , exec = require('child_process').exec
     , fs = require('fs')
     , util = require('util');
@@ -36,106 +35,107 @@ var custom_headers = {
 
 
 function takeKeywordsForMFA(MFA_URI) {
-    request({
-        url: MFA_URI,
+    new Promise(function (resolve, reject) {
+        request({
+            url: MFA_URI,
+            method: 'GET',
+            timeout: 10000
+            //headers: custom_headers
+        }, function (error, response, body) {
+            if (!error && response.statusCode === 200) {
+                const $ = cheerio.load(body);
+                let keywords = [];
+                $('header nav a').each(function () {
+                    keywords.push($(this).text())
+                });
+                return resolve(keywords);
+            } else {
+                return reject();
+            }
+        });
+    }).then(function (success) {
+        console.log('proceed to recovery keywords: ', success);
+        fs.writeFileSync('./keywords.js', `module.exports = ${util.inspect(success, false, 2, false)}`);
+        // RUN CASPER-SEO-HUNTER:
+        //exec('casperjs casper-SEO-hunter.js');
+    }, function (error) {
+        console.log("Fail enter to my MFA - .....is magic!");
+    });
+
+}
+
+
+
+
+
+var counter = {
+    dynamic: 0
+}
+// Запускает для JSON'a, который вернул каспер:
+function* serialManiacContentParser() {
+    let parsMetadataStorage = require('./content/urls.js');
+    counter.static = parsMetadataStorage.length * 10;
+    for (let i = 0; i < parsMetadataStorage.length; i += 1) {
+        yield* takeContentForMFA__byCasperReturnedJSON(parsMetadataStorage[i]);
+    }
+}
+function* takeContentForMFA__byCasperReturnedJSON(parseObject) {
+    for (let i = 0; i < parseObject.links.length; i += 1) {
+        yield* takeContentForMFA__byURL(parseObject.links[i], parseObject.keyword);
+    }
+}
+
+
+
+// Запускает для каждой URL массива, принадлежащего ключевому слову:
+var forReturnContentObject = {};
+const P_length = 16, H1_length = 6, H2_length = 12, _IMGsrc_length = 4;
+
+function* takeContentForMFA__byURL(parseURL, keyword) {
+    counter.dynamic++;
+    console.log('====urlAdressStorage: ', parseURL);
+    //new Promise(function (resolve, reject) {
+    yield request({
+        url: parseURL,
         method: 'GET',
-        timeout: 10000
+        timeout: 20000,
         //headers: custom_headers
     }, function (error, response, body) {
         if (!error && response.statusCode === 200) {
             const $ = cheerio.load(body);
-            let keywords = [];
-            $('header nav a').each(function () {
-                keywords.push($(this).text())
-            });
-            logger.info('proceed to recovery keywords: ', keywords);
-
-            return;
-        } else {
-            logger.log("Fail enter to my MFA - .....is magic!");
-            return false;
+            if (!$('body ').length) {
+                //console.log('Wrong website encoding');
+            }
+            // console.log(" ! proceed to scrape content", util.inspect(forReturnContentObject, false, 4, false));
+            forReturnContentObject[keyword] = getNeedfulHTMLements($);
         }
     });
+    /*
+    console.log(counter.dynamic, counter.static)
+    if (counter.dynamic == counter.static - 2) {
+        fs.writeFile('./content/crawl.js', util.inspect(forReturnContentObject, false, 4, false), (err) => {
+            if (err) throw err;
+            console.log('WoW! DB saved!');
+        });
+    }
+*/
 }
 
-//
-// RUN CASPER-SEO-HUNTER:
-//     
-var fromCasper = '';
-var casper = exec('casperjs casper-SEO-hunter.js');
-casper.stdout.on('data', function (data) {
-    fromCasper += data;
-    console.log(data);
-});
-casper.stdout.on('close', () => {
-    if (-1 === fromCasper.lastIndexOf('~~Emty links aray~~')) {
-        // keyword
-        let cutWordFrom = fromCasper.indexOf('<keyword>') + 9
-            , cutWordTo = fromCasper.indexOf('<keyword/>')
-            , keyword = fromCasper.substring(cutWordFrom, cutWordTo);
-        // urls
-        let cutFrom = fromCasper.indexOf('<cut>') + 5
-            , cutTo = fromCasper.indexOf('<cut/>')
-            , urlAdressStorage = fromCasper.substring(cutFrom, cutTo).split(',');
-        logger.info('FROM CUSPER urlAdressStorage: ', { [keyword]: urlAdressStorage });
-        takeContentForMFA({ [keyword]: urlAdressStorage });
-        // urls
-    } else {
-        console.log('Casper failure.....');
-        process.exit();
-    }
-});
-//
-//
-//
-function takeContentForMFA(urlAdressStorage) {
-    const P_length = 16, H1_length = 6, H2_length = 12, _IMGsrc_length = 4;
-    var forReturnContentObject = {};
-
-    for (word in urlAdressStorage) {
-        var currencyWordURLs = urlAdressStorage[word];
-
-        for (let i = 0; i < currencyWordURLs.length; i += 1) {
 
 
-            request({
-                url: currencyWordURLs[i],
-                method: 'GET',
-                timeout: 20000,
-                //headers: custom_headers
-            }, function (error, response, body) {
-                if (!error && response.statusCode === 200) {
-                    const $ = cheerio.load(body);
-                    if (!$('body ').length) {
-                        logger.log('Wrong website encoding');
-                        return;
-                    }
-                    forReturnContentObject[word] = getNeedfulHTMLements($);
-                    console.log(" ! proceed to scrape content", forReturnContentObject);
-                } else {
-                    logger.log("Can't load site to scraping ;( ");
-
-                }
-            });
 
 
-        }
-        console.log(`NEXT STEP ==>> ${word} !`);
-    }
 
-    logger.info("I'm successful scrape all content :-) ", forReturnContentObject);
-    fs.writeFile('./content/scrappy__' + new Date() + '.js', util.inspect(forReturnContentObject, false, 4, false), (err) => {
-        if (err) throw err;
-        console.log('WoW! scraping content saved!');
-    });
-    /*fs.createWriteStream(`content/${word}.js`, {
-        flags: 'w',
-        defaultEncoding: 'utf8',
-        fd: null,
-        mode: 0o666,
-        autoClose: true
-    });*/
-}
+
+
+
+
+
+
+
+
+
+
 
 
 //
@@ -170,4 +170,15 @@ function getNeedfulHTMLements($) {
 
 
 
-takeKeywordsForMFA("http://web-dreamteam.com");
+//takeKeywordsForMFA("http://web-dreamteam.com");
+
+var runMFA_Crawler = serialManiacContentParser();
+for (let value of runMFA_Crawler) {
+    //console.log('value :: ', value);
+}
+setTimeout(function () {
+    fs.writeFile('./content/crawl.js', util.inspect(forReturnContentObject, false, 4, false), (err) => {
+        if (err) throw err;
+        console.log('WoW! DB saved!');
+    });
+}, 120 * 1000);

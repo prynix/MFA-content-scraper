@@ -5,7 +5,7 @@
     "description": "MFA_content_parser",
     "main": "none",
     "dependencies": {
-        "winston": "^2.3.0",
+        "pm2": "^2.4.0",      
         "cheerio": "^0.6",
         "request": "2.79.0",
         "node-schedule": "1.2.0",
