@@ -1,20 +1,16 @@
 {
-    "name": "MFA_content_parser",
+    "name": "referers_and_keywords_crowler",
     "version": "0.0.1",
     "private": true,
-    "description": "MFA_content_parser",
+    "description": "referers_and_keywords_crowler",
     "main": "none",
-    "dependencies": {
-        "pm2": "^2.4.0",      
-        "cheerio": "^0.6",
-        "request": "2.79.0",
-        "node-schedule": "1.2.0",
-        "phantomjs": "^2.1.0",
-        "casperjs": "^1.1.3"
+    "dependencies": {         
+        "cheerio": "0.22.0",
+        "request": "2.79.0"     
     },
     "devDependencies": {},
     "scripts": {
-        "start": "node mfa_parser.js"
+        "start": "node breadwinner.js"
     },
     "author": "Roman Lezhnin",
     "license": ""
